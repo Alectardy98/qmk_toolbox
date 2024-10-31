@@ -1,14 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <OutputType>WinExe</OutputType>
+        <OutputType>Exe</OutputType>
         <TargetFramework>net6.0</TargetFramework>
         <RootNamespace>QMK_Toolbox</RootNamespace>
         <ImplicitUsings>false</ImplicitUsings>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <Nullable>disable</Nullable>
-        <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-        <PublishTrimmed>true</PublishTrimmed>
-        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+        <PublishTrimmed>false</PublishTrimmed>
     </PropertyGroup>
 
     <ItemGroup>
@@ -26,7 +25,10 @@
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="0.10.18" />
         <PackageReference Include="Avalonia.ReactiveUI" Version="0.10.18" />
         <PackageReference Include="MessageBox.Avalonia" Version="2.1.0" />
-        <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.1" />
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.1" />
+        <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
         <PackageReference Include="XamlNameReferenceGenerator" Version="1.5.1" />
         <PackageReference Include="LibUsbDotNet" Version="3.0.102-alpha" />
     </ItemGroup>

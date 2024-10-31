@@ -1,10 +1,11 @@
-0using System.Threading.Tasks;
+using System.Threading.Tasks;
 
-namespace QMK_Toolbox.Views;
-
-public interface IWindow
+namespace QMK_Toolbox.Views
 {
-    public void ShowMessage(string message);
-    public void OnClose();
-    public Task OnFileOpen();
+    public interface IWindow
+    {
+        void ShowMessage(string message);
+        void OnClose();
+        Task OnFileOpen();
+    }
 }
