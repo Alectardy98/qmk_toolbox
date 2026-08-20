@@ -1,5 +1,24 @@
 # QMK Toolbox
 
+This is an alpha build I have been working on in Manjaro,
+I have a Caterina, Halfkey, and AmtelDFU working, as well as USBasp
+This is very much in alpha
+
+
+
+<img width="1212" height="1080" alt="image" src="https://github.com/user-attachments/assets/a6bf60d8-da84-480a-a3ea-b879a7ee638e" />
+
+
+
+
+
+
+
+
+
+
+Master Readme
+
 [![Build Status](https://github.com/qmk/qmk_toolbox/workflows/CI/badge.svg?branch=master)](https://github.com/qmk/qmk_toolbox/actions?query=workflow%3ACI)
 [![Current Version](https://img.shields.io/github/tag/qmk/qmk_toolbox.svg)](https://github.com/qmk/qmk_toolbox/tags)
 [![Discord](https://img.shields.io/discord/440868230475677696.svg)](https://discord.gg/Uq7gcHh)
