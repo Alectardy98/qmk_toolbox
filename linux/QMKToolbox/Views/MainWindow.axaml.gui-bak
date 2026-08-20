@@ -22,11 +22,7 @@
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <Viewbox Stretch="Fill"
-         StretchDirection="Both"
-         HorizontalAlignment="Stretch"
-         VerticalAlignment="Stretch">
-<Grid Width="800" Height="680" HorizontalAlignment="Stretch" 
+    <Grid HorizontalAlignment="Stretch" 
           ShowGridLines="False" 
           VerticalAlignment="Stretch" 
           RowDefinitions="22,20,30,30,*,30,5"
@@ -269,5 +265,4 @@
             <ComboBoxItem Content="{x:Static r:Resources.NoHID}"/>
         </ComboBox>
     </Grid>
-</Viewbox>
 </Window>

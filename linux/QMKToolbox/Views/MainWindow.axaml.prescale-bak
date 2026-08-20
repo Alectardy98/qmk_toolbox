@@ -4,15 +4,15 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:r="clr-namespace:QMK_Toolbox.Properties" 
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="450"
         x:Class="QMK_Toolbox.Views.MainWindow"
         Initialized="OnInitialized"
-        Width="800"
+        Width="1200"
         DragDrop.AllowDrop="True"
-        Height="680"
-        FontSize="10"
-        MinWidth="800"
-        MinHeight="680"
+        Height="850"
+        FontSize="14"
+        MinWidth="1200"
+        MinHeight="850"
         Title="{x:Static r:Resources.ApplicationTitle}"
         Background="#f0f0f0"
         Icon="/Resources/qmk.ico">
@@ -22,15 +22,11 @@
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <Viewbox Stretch="Fill"
-         StretchDirection="Both"
-         HorizontalAlignment="Stretch"
-         VerticalAlignment="Stretch">
-<Grid Width="800" Height="680" HorizontalAlignment="Stretch" 
+    <Grid HorizontalAlignment="Stretch" 
           ShowGridLines="False" 
           VerticalAlignment="Stretch" 
-          RowDefinitions="22,20,30,30,*,30,5"
-          ColumnDefinitions="10,*,200,10">
+          RowDefinitions="32,28,42,42,*,40,8"
+          ColumnDefinitions="14,*,300,14">
         <Grid.Resources>
             <!-- <Style Selector="CheckBox"> -->
                 <!-- <Setter Property="Padding" Value="8,0,0,0" /> -->
@@ -58,7 +54,7 @@
                 <!--                 BorderThickness="{DynamicResource CheckBoxBorderThemeThickness}" -->
                 <!--                 CornerRadius="{TemplateBinding CornerRadius}" -->
                 <!--                 UseLayoutRounding="False" -->
-                <!--                 Height="20" -->
+                <!--                 Height="30" -->
                 <!--                 Width="20" /> -->
                 <!-- -->
                 <!--         <Viewbox UseLayoutRounding="False"> -->
@@ -116,7 +112,7 @@
             </MenuItem>
         </Menu>
         <Label
-            FontSize="10"
+            FontSize="14"
             Grid.Row="1"
             Grid.Column="1"
             Padding="0,0,0,0"
@@ -125,7 +121,7 @@
             HorizontalAlignment="Left"
             Content="{x:Static r:Resources.Label_LocalFile}" />
         <Label
-            FontSize="10"
+            FontSize="14"
             Grid.Row="1"
             Grid.Column="2"
             Padding="0,0,0,0"
@@ -144,12 +140,12 @@
                 x:Name="HexFile"
                 TextWrapping="Wrap"
                 Padding="2,3,0,0"
-                Height="19"
+                Height="30"
                 Background="White"
                 VerticalAlignment="Center"
                 HorizontalAlignment="Stretch"
                 Margin="0,0,0,0"
-                FontSize="10"
+                FontSize="14"
                 Text="{Binding HexFile}" />
         </Border>
         <StackPanel
@@ -163,9 +159,9 @@
                 Padding ="2,4,0,0"
                 VerticalAlignment="Center"
                 HorizontalAlignment="Right"
-                Height="22"
-                Width="45"
-                FontSize="10"
+                Height="32"
+                Width="70"
+                FontSize="14"
                 Content="{x:Static r:Resources.Button_Open}" />
             <ComboBox
                 x:Name="McuCombo"
@@ -174,9 +170,9 @@
                 VerticalAlignment="Center"
                 HorizontalAlignment="Right"
                 BorderBrush="DarkGray"
-                FontSize="10"
-                Width="120"
-                Height="22"
+                FontSize="14"
+                Width="170"
+                Height="32"
                 SelectedIndex="{Binding SelectedMcuIndex}" />
         </StackPanel>
         <StackPanel
@@ -188,16 +184,16 @@
             <Label
                 VerticalAlignment="Center"
                 HorizontalAlignment="Left"
-                Height="20"
+                Height="30"
                 Margin="0,2,0,0"
-                FontSize="11"
+                FontSize="14"
                 Content="{x:Static r:Resources.Label_AutoFlash}" />
             <CheckBox
                 x:Name="CheckBox"
                 Margin="0,0,5,0"
                 Padding="0,0,0,0"
-                FontSize="8"
-                Height="22"
+                FontSize="14"
+                Height="32"
                 IsChecked="{Binding IsAutoFlash}"
                 VerticalAlignment="Center"
                 HorizontalAlignment="Left" >
@@ -208,9 +204,9 @@
                 HorizontalAlignment="Left"
                 HorizontalContentAlignment="Center"
                 Padding ="3,4,0,0"
-                Height="22"
-                Width="55"
-                FontSize="10"
+                Height="32"
+                Width="80"
+                FontSize="14"
                 Margin="0,0,5,0"
                 Content="{x:Static r:Resources.Button_Flash}" />
             <Button
@@ -219,9 +215,9 @@
                 HorizontalAlignment="Left"
                 Padding ="0,4,0,0"
                 HorizontalContentAlignment="Center"
-                Height="22"
-                Width="110"
-                FontSize="10"
+                Height="32"
+                Width="150"
+                FontSize="14"
                 Margin="0,0,5,0"
                 Content="{x:Static r:Resources.Button_Clear}" />
             <Button
@@ -230,9 +226,9 @@
                 Padding ="0,4,0,0"
                 HorizontalAlignment="Left"
                 HorizontalContentAlignment="Center"
-                Height="22"
+                Height="32"
                 Width="70"
-                FontSize="10"
+                FontSize="14"
                 Content="{x:Static r:Resources.Button_ExitDFU}" />
         </StackPanel>
         <Border 
@@ -261,13 +257,12 @@
               Grid.Column="1"
               VerticalAlignment="Top"
               HorizontalAlignment="Stretch"
-              FontSize="10"
-              Height="22"
+              FontSize="14"
+              Height="32"
               BorderBrush="DarkGray"
               Grid.ColumnSpan="2"
               SelectedIndex="0">
             <ComboBoxItem Content="{x:Static r:Resources.NoHID}"/>
         </ComboBox>
     </Grid>
-</Viewbox>
 </Window>
