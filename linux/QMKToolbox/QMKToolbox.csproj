@@ -61,7 +61,7 @@
         <EmbeddedResource Include="Resources/dfu-util" />
         <EmbeddedResource Include="Resources/hid_bootloader_cli" />
         <EmbeddedResource Include="Resources/mdloader" />
-        <EmbeddedResource Include="Resources/teensy-loader" />
+        <EmbeddedResource Include="Resources/teensy_loader_cli" />
         <EmbeddedResource Include="Resources/wb32-dfu-updater_cli" />
         <EmbeddedResource Include="Resources/libftdi1.so" />
         <EmbeddedResource Include="Resources/libusb.so" />

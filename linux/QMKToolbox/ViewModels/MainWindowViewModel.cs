@@ -146,7 +146,20 @@ public class MainWindowViewModel : ViewModelBase
 
         // Extract the bundled AVR flashing tool so Linux users do not need
         // avrdude installed system-wide.
-        EmbeddedResourceHelper.ExtractResources("avrdude", "avrdude.conf");
+        EmbeddedResourceHelper.ExtractResources(
+            "avrdude",
+            "avrdude.conf",
+            "dfu-programmer",
+            "dfu-util",
+            "hid_bootloader_cli",
+            "teensy_loader_cli",
+            "mdloader",
+            "wb32-dfu-updater_cli",
+            "bootloadHID",
+            "libusb.so",
+            "libhidapi-libusb.so",
+            "libftdi1.so"
+        );
         /*
           The extraction of embedded resources is nice, but more work is needed on Linux for this
           The installers for the flash programmers do an allow-listing for them to be able to access the

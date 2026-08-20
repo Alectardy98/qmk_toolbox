@@ -286,7 +286,7 @@ internal class UsbListener
 
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x1209, ProductId = 0x0478,
+            VendorId = 0x16c0, ProductId = 0x0478,
             VendorName = "Van Ooijen Technische Informatica", ProductName = "Teensy Halfkay Bootloader",
             BootloaderType = BootloaderType.HalfKay
         });
