@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace QMK_Toolbox.Usb.Bootloader;
@@ -53,39 +52,20 @@ internal class CaterinaDevice : BootloaderDevice
             .OrderBy(x => x, StringComparer.Ordinal);
     }
 
-    [DllImport("libc", SetLastError = true)]
-    private static extern IntPtr realpath(string path, IntPtr resolvedPath);
-
-    [DllImport("libc")]
-    private static extern void free(IntPtr ptr);
-
-    private static string RealPath(string path)
-    {
-        var ptr = realpath(path, IntPtr.Zero);
-        if (ptr == IntPtr.Zero)
-            return null;
-
-        try
-        {
-            return Marshal.PtrToStringAnsi(ptr);
-        }
-        finally
-        {
-            free(ptr);
-        }
-    }
-
     private static bool PortMatchesUsbDevice(string port, ushort vendorId, ushort productId)
     {
+        var ttyName = Path.GetFileName(port);
+        var linkPath = $"/sys/class/tty/{ttyName}/device";
+
         try
         {
-            var ttyName = Path.GetFileName(port);
-            var resolved = RealPath($"/sys/class/tty/{ttyName}/device");
+            var link = new FileInfo(linkPath);
+            var target = link.ResolveLinkTarget(true);
 
-            if (resolved == null)
+            if (target == null)
                 return false;
 
-            var current = new DirectoryInfo(resolved);
+            var current = new DirectoryInfo(target.FullName);
 
             while (current != null)
             {
@@ -100,10 +80,9 @@ internal class CaterinaDevice : BootloaderDevice
                     if (ushort.TryParse(vendorText, NumberStyles.HexNumber,
                             CultureInfo.InvariantCulture, out var foundVendor) &&
                         ushort.TryParse(productText, NumberStyles.HexNumber,
-                            CultureInfo.InvariantCulture, out var foundProduct) &&
-                        foundVendor == vendorId && foundProduct == productId)
+                            CultureInfo.InvariantCulture, out var foundProduct))
                     {
-                        return true;
+                        return foundVendor == vendorId && foundProduct == productId;
                     }
                 }
 
@@ -112,7 +91,7 @@ internal class CaterinaDevice : BootloaderDevice
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Caterina serial discovery error: {ex.Message}");
+            Console.WriteLine($"Caterina serial discovery: {ex}");
         }
 
         return false;

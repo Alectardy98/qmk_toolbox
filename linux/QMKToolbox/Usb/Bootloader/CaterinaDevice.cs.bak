@@ -1,20 +1,20 @@
-﻿using System.Threading.Tasks;
-
-// ReSharper disable StringLiteralTypo
+﻿// ReSharper disable StringLiteralTypo
 namespace QMK_Toolbox.Usb.Bootloader;
 
-internal class AtmelSamBaDevice : BootloaderDevice
+internal class CaterinaDevice : BootloaderDevice
 {
-    public AtmelSamBaDevice(KnownHidDevice d) : base(d)
+    public CaterinaDevice(KnownHidDevice d) : base(d)
     {
-        Type = BootloaderType.AtmelSamBa;
-        Name = "Atmel SAM-BA";
-        IsResettable = true;
+        Type = BootloaderType.Caterina;
+        Name = "Caterina";
+
+        IsEepromFlashable = true;
+
         // TODO: Fix this
         ComPort = "/dev/ttyACM0"; // hard coded for now
     }
 
-    private string ComPort { get; }
+    public string ComPort { get; }
 
     public override void Flash(string mcu, string file)
     {
@@ -24,10 +24,10 @@ internal class AtmelSamBaDevice : BootloaderDevice
             return;
         }
 
-        RunProcessAsync("mdloader", $"-p {ComPort} -D \"{file}\" --restart").Wait();
+        RunProcessAsync("avrdude", $"-p {mcu} -c avr109 -U flash:w:\"{file}\":i -P {ComPort}").Wait();
     }
 
-    public override void Reset(string mcu)
+    public override void FlashEeprom(string mcu, string file)
     {
         if (ComPort == null)
         {
@@ -35,7 +35,7 @@ internal class AtmelSamBaDevice : BootloaderDevice
             return;
         }
 
-        RunProcessAsync("mdloader", $"-p {ComPort} --restart").Wait();
+        RunProcessAsync("avrdude", $"-p {mcu} -c avr109 -U eeprom:w:\"{file}\":i -P {ComPort}").Wait();
     }
 
     public override string ToString()

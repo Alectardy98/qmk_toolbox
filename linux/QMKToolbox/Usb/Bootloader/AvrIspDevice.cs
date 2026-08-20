@@ -8,7 +8,7 @@ internal class AvrIspDevice : BootloaderDevice
         Type = BootloaderType.AvrIsp;
         Name = "AVR ISP";
         // TODO: Fix this
-        ComPort = "/dev/ttyS0"; // hard coded for now
+        ComPort = "/dev/ttyACM0"; // hard coded for now
     }
 
     private string ComPort { get; }
