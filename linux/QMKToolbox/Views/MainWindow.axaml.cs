@@ -59,6 +59,41 @@ public partial class MainWindow : Window, IWindow
     
     private async Task<string> GetPath()
     {
+        // Use the native GTK/GNOME file chooser on Linux when Zenity is available.
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "zenity",
+                    Arguments = "--file-selection --title=\"Select QMK Firmware\" --file-filter=\"Firmware | *.hex *.bin\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(startInfo);
+                if (process != null)
+                {
+                    var path = await process.StandardOutput.ReadToEndAsync();
+                    await process.WaitForExitAsync();
+
+                    if (process.ExitCode == 0)
+                        return path.Trim();
+
+                    // Exit code 1 means the user cancelled.
+                    if (process.ExitCode == 1)
+                        return null;
+                }
+            }
+            catch
+            {
+                // Zenity is unavailable; fall back to Avalonia.
+            }
+        }
+
         var dialog = new OpenFileDialog();
         if (dialog.Filters != null)
         {
