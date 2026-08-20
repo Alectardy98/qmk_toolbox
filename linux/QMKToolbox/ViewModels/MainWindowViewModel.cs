@@ -143,6 +143,10 @@ public class MainWindowViewModel : ViewModelBase
         RestoreLastSavedHexFile();
         ShowInitialLogMessages();
         SubscribeToEvents();
+
+        // Extract the bundled AVR flashing tool so Linux users do not need
+        // avrdude installed system-wide.
+        EmbeddedResourceHelper.ExtractResources("avrdude", "avrdude.conf");
         /*
           The extraction of embedded resources is nice, but more work is needed on Linux for this
           The installers for the flash programmers do an allow-listing for them to be able to access the

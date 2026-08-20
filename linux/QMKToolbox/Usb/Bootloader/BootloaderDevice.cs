@@ -2,6 +2,7 @@
 using Avalonia.Threading;
 // ReSharper disable StringLiteralTypo
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace QMK_Toolbox.Usb.Bootloader;
@@ -59,11 +60,17 @@ internal abstract class BootloaderDevice
 
     protected async Task<int> RunProcessAsync(string command, string args)
     {
+        var bundledCommand = Path.Combine("/tmp", command);
+        var executable = File.Exists(bundledCommand) ? bundledCommand : command;
+
+        if (command == "avrdude" && File.Exists("/tmp/avrdude.conf"))
+            args = $"-C /tmp/avrdude.conf {args}";
+
         using var process = new Process
         {
             StartInfo =
             {
-                FileName = command,
+                FileName = executable,
                 Arguments = args,
                 WorkingDirectory ="/tmp",
                 UseShellExecute = false,
