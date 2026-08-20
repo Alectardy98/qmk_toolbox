@@ -65,6 +65,7 @@
         <EmbeddedResource Include="Resources/wb32-dfu-updater_cli" />
         <EmbeddedResource Include="Resources/libftdi1.so" />
         <EmbeddedResource Include="Resources/libusb.so" />
+        <EmbeddedResource Include="Resources/libhidapi-libusb.so" />
 
     </ItemGroup>
 

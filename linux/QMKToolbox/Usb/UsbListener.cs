@@ -287,7 +287,7 @@ internal class UsbListener
         _knownDevices.Add(new KnownHidDevice
         {
             VendorId = 0x16c0, ProductId = 0x0478,
-            VendorName = "Van Ooijen Technische Informatica", ProductName = "Teensy Halfkay Bootloader",
+            VendorName = "Van Ooijen Technische Informatica", ProductName = "USBasp ISP Programmer",
             BootloaderType = BootloaderType.HalfKay
         });
         _knownDevices.Add(new KnownHidDevice
@@ -298,8 +298,8 @@ internal class UsbListener
         });
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x1209, ProductId = 0x05dc,
-            VendorName = "Van Ooijen Technische Informatica", ProductName = "Teensy Halfkay Bootloader",
+            VendorId = 0x16c0, ProductId = 0x05dc,
+            VendorName = "Van Ooijen Technische Informatica", ProductName = "USBasp ISP Programmer",
             BootloaderType = BootloaderType.UsbAsp
         });
         _knownDevices.Add(new KnownHidDevice
