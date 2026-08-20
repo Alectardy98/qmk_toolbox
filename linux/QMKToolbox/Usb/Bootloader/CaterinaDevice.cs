@@ -118,6 +118,23 @@ internal class CaterinaDevice : BootloaderDevice
         return false;
     }
 
+    private static bool CanAccessPort(string port)
+    {
+        try
+        {
+            using var stream = new FileStream(port, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
     public override void Flash(string mcu, string file)
     {
         ComPort = FindComPortWithRetry();
@@ -125,6 +142,12 @@ internal class CaterinaDevice : BootloaderDevice
         if (ComPort == null)
         {
             PrintMessage("Serial port not found for Caterina bootloader!", MessageType.Error);
+            return;
+        }
+
+        if (!CanAccessPort(ComPort))
+        {
+            PrintMessage($"Permission denied for {ComPort}. Install the QMK udev rules and reconnect the keyboard.", MessageType.Error);
             return;
         }
 
@@ -140,6 +163,12 @@ internal class CaterinaDevice : BootloaderDevice
         if (ComPort == null)
         {
             PrintMessage("Serial port not found for Caterina bootloader!", MessageType.Error);
+            return;
+        }
+
+        if (!CanAccessPort(ComPort))
+        {
+            PrintMessage($"Permission denied for {ComPort}. Install the QMK udev rules and reconnect the keyboard.", MessageType.Error);
             return;
         }
 

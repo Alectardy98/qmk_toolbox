@@ -21,6 +21,7 @@ internal class UsbListener
 
     private readonly List<KnownHidDevice> _attachedDevices = new();
     private readonly List<KnownHidDevice> _knownDevices = new();
+    private readonly UsbContext _usbContext = new();
     private Task _backgroundTask;
 
     public BootloaderDeviceEventDelegate BootloaderDeviceConnected;
@@ -45,10 +46,9 @@ internal class UsbListener
         OutputReceived?.Invoke(device, data, type);
     }
 
-    private static void GetNewUsbDevices(List<UsbDeviceNameRecord> listNew)
+    private void GetNewUsbDevices(List<UsbDeviceNameRecord> listNew)
     {
-        using UsbContext context = new UsbContext();
-        var allDevices = context.List();
+        var allDevices = _usbContext.List();
 
         foreach (var dev in allDevices)
         {
