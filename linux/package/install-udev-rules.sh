@@ -1,26 +1,12 @@
 #!/bin/sh
 set -eu
-
-RULE_SRC="/usr/lib/udev/rules.d/50-qmk.rules"
-RULE_DST="/etc/udev/rules.d/50-qmk.rules"
-
-if [ -f "$RULE_SRC" ]; then
-    echo "QMK udev rules are already installed at:"
-    echo "  $RULE_SRC"
-    exit 0
+HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+RULE="$HERE/50-qmk.rules"
+test -r "$RULE"
+if [ "$(id -u)" -ne 0 ]; then
+    exec sudo "$0" "$@"
 fi
-
-if [ ! -f "./50-qmk.rules" ]; then
-    echo "50-qmk.rules not found next to this installer."
-    exit 1
-fi
-
-echo "Installing QMK udev rules..."
-sudo install -m 0644 ./50-qmk.rules "$RULE_DST"
-
-echo "Reloading udev..."
-sudo udevadm control --reload-rules || true
-sudo systemctl restart systemd-udevd.service
-
-echo "QMK udev rules installed."
-echo "Reconnect or reset your keyboard before flashing."
+install -m 0755 "$HERE/qmk_id" /usr/lib/udev/qmk_id
+install -m 0644 "$RULE" /etc/udev/rules.d/50-qmk.rules
+udevadm control --reload-rules
+printf '%s\n' 'QMK rules installed. Reconnect your keyboard to apply them.'

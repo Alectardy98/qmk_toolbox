@@ -17,9 +17,9 @@ internal class Wb32DfuDevice : BootloaderDevice
     {
         if (Path.GetExtension(file)?.ToLower() == ".bin")
             RunProcessAsync
-                ("/tmp/wb32-dfu-updater_cli", $"--toolbox-mode --dfuse-address 0x08000000 --download \"{file}\"").Wait();
+                ("wb32-dfu-updater_cli", $"--toolbox-mode --dfuse-address 0x08000000 --download {Quote(file)}").Wait();
         else if (Path.GetExtension(file)?.ToLower() == ".hex")
-            RunProcessAsync("wb32-dfu-updater_cli", $"--toolbox-mode --download \"{file}\"").Wait();
+            RunProcessAsync("wb32-dfu-updater_cli", $"--toolbox-mode --download {Quote(file)}").Wait();
         else
             PrintMessage("Only firmware files in .bin or .hex format can be flashed with wb32-dfu-updater_cli!",
                 MessageType.Error);

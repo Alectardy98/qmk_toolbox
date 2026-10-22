@@ -1,0 +1,26 @@
+name: Linux
+on:
+  push:
+    paths: ['linux/**', 'common/**', '.github/workflows/linux.yml']
+  pull_request:
+    paths: ['linux/**', 'common/**', '.github/workflows/linux.yml']
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet build QMKToolbox.sln -c Release
+        working-directory: linux
+      - run: dotnet run --project tests/QMKToolbox.Tests.csproj -c Release
+        working-directory: linux
+      - run: python3 -m unittest discover -s tests -p 'test_desktop_integration.py'
+        working-directory: linux
+      - run: ./package/build-deb.sh
+        working-directory: linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qmk-toolbox-linux-amd64
+          path: linux/build/*.deb

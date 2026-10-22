@@ -28,7 +28,7 @@ internal class AtmelDfuDevice : BootloaderDevice
     {
         RunProcessAsync("dfu-programmer", $"{mcu} erase --force").Wait();
         Task.Delay(5).Wait();
-        RunProcessAsync("dfu-programmer", $"{mcu} flash --force \"{file}\"").Wait();
+        RunProcessAsync("dfu-programmer", $"{mcu} flash --force {Quote(file)}").Wait();
         Task.Delay(5).Wait();
         RunProcessAsync("dfu-programmer", $"{mcu} reset").Wait();
     }
@@ -39,7 +39,7 @@ internal class AtmelDfuDevice : BootloaderDevice
             RunProcessAsync("dfu-programmer", $"{mcu} erase --force").Wait();
 
         RunProcessAsync("dfu-programmer",
-            $"{mcu} flash --force --suppress-validation --eeprom \"{file}\"").Wait();
+            $"{mcu} flash --force --suppress-validation --eeprom {Quote(file)}").Wait();
 
         if (Type == BootloaderType.AtmelDfu)
             PrintMessage("Please reflash device with firmware now", MessageType.Bootloader);

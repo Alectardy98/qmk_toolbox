@@ -1,23 +1,32 @@
 using System;
+using System.IO;
+using System.Collections.Generic;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Controls.Platform;
 using Avalonia.Input;
-using Avalonia.Threading;
-using MessageBox.Avalonia;
+
 
 namespace QMK_Toolbox.Views;
 
 public partial class MainWindow : Window, IWindow
 {
-    private TextBlock _hexTextBlock;
-    private Border _border;
     public MainWindow()
     {
         InitializeComponent();
+        Opened += OnInitialized;
+        Closing += (_, e) =>
+        {
+            if (((App)App.Current).MainWindowViewModel?.IsBusy == true)
+            {
+                e.Cancel = true;
+                ShowMessage("Wait for the current device operation to finish before closing.");
+            }
+        };
+        Closed += (_, _) => ((App)App.Current).MainWindowViewModel?.Dispose();
         
         
         AddHandler(DragDrop.DropEvent, Drop);
@@ -26,23 +35,51 @@ public partial class MainWindow : Window, IWindow
 
     private void OnInitialized(object sender, EventArgs e)
     {
-        Task.Delay(50).ContinueWith( t => Dispatcher.UIThread.InvokeAsync(
-            () =>
-            {
-                var vm = ((App)App.Current).MainWindowViewModel;
-                vm.InitUi();
-                _hexTextBlock = this.Find<TextBlock>("HexFile");
-                _border = this.Find<Border>("border");
-                _border.PointerPressed += DoDrag;
-            } ) );
+        ((App)App.Current).MainWindowViewModel.InitUi();
     }
-    
+
+    private async void SaveLog(object sender, RoutedEventArgs e)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            { Title = "Save QMK log", SuggestedFileName = "qmk-toolbox.log" });
+        if (file == null) return;
+        try
+        {
+            await using var output = await file.OpenWriteAsync();
+            output.SetLength(0);
+            await using var writer = new StreamWriter(output);
+            await writer.WriteAsync(((App)App.Current).MainWindowViewModel.Log);
+        }
+        catch (Exception ex) { ShowMessage($"Could not save log: {ex.Message}"); }
+    }
+
+    private void OpenReleases(object sender, RoutedEventArgs e) =>
+        Process.Start(new ProcessStartInfo("https://github.com/qmk/qmk_toolbox/releases") { UseShellExecute = true });
+
+    private void ShowAbout(object sender, RoutedEventArgs e) => ShowMessage(
+        "QMK Toolbox Linux\nFirmware flashing and integrated HID console\nBased on QMK Toolbox (MIT license)\nhttps://qmk.fm/toolbox");
+
+    private void ShowKeyTester(object sender, RoutedEventArgs e)
+    {
+        var pressed = new HashSet<Key>();
+        var text = new TextBlock { Text = "Press keys in this window.",
+            Margin = new Avalonia.Thickness(20), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var window = new Window { Title = "QMK Key Tester", Width = 640, Height = 300, Content = text };
+        window.KeyDown += (_, key) => { pressed.Add(key.Key); text.Text = "Pressed: " + string.Join(", ", pressed); key.Handled = true; };
+        window.KeyUp += (_, key) => { pressed.Remove(key.Key); text.Text = $"Released: {key.Key}\nPressed: " + string.Join(", ", pressed); key.Handled = true; };
+        window.Deactivated += (_, _) => { pressed.Clear(); text.Text = "Click this window to test keys."; };
+        window.Show(this);
+    }
+
     public void ShowMessage(string message)
     {
-        var messageBoxStandardWindow = MessageBoxManager
-            .GetMessageBoxStandardWindow("QMK Toolbox - File Type Error",
-                message);
-        messageBoxStandardWindow.Show();
+        var dialog = new Window
+        {
+            Title = "QMK Toolbox", Width = 480, Height = 180,
+            Content = new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                Margin = new Avalonia.Thickness(20) }
+        };
+        _ = dialog.ShowDialog(this);
     }
 
     public void OnClose()
@@ -54,80 +91,33 @@ public partial class MainWindow : Window, IWindow
     {
         var vm = ((App)App.Current).MainWindowViewModel;
         var hexFile = await GetPath();
-        vm.HexFile = string.IsNullOrEmpty(hexFile) ? vm.Prompt : hexFile;
+        if (!string.IsNullOrEmpty(hexFile)) vm.HexFile = hexFile;
     }
     
     private async Task<string> GetPath()
     {
-        // Use the native GTK/GNOME file chooser on Linux when Zenity is available.
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
         {
-            try
-            {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "zenity",
-                    Arguments = "--file-selection --title=\"Select QMK Firmware\" --file-filter=\"Firmware | *.hex *.bin\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = Process.Start(startInfo);
-                if (process != null)
-                {
-                    var path = await process.StandardOutput.ReadToEndAsync();
-                    await process.WaitForExitAsync();
-
-                    if (process.ExitCode == 0)
-                        return path.Trim();
-
-                    // Exit code 1 means the user cancelled.
-                    if (process.ExitCode == 1)
-                        return null;
-                }
-            }
-            catch
-            {
-                // Zenity is unavailable; fall back to Avalonia.
-            }
-        }
-
-        var dialog = new OpenFileDialog();
-        if (dialog.Filters != null)
-        {
-            dialog.Filters.Add(new FileDialogFilter() { Name = "Hex", Extensions = { "hex" } });
-            dialog.Filters.Add(new FileDialogFilter() { Name = "Bin", Extensions = { "bin" } });
-        }
-        dialog.AllowMultiple = false;
-        var result = await dialog.ShowAsync(this);
-        return result?[0];
-    }
-
-    private async void DoDrag(object sender, Avalonia.Input.PointerPressedEventArgs e)
-    {
-        DataObject dragData = new DataObject();
-        var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Copy);
+            Title = "Select QMK firmware", AllowMultiple = false,
+            FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType("Firmware")
+                { Patterns = new[] { "*.hex", "*.bin", "*.dfu" } } }
+        });
+        return files.FirstOrDefault()?.TryGetLocalPath();
     }
 
     private void DragOver(object sender, DragEventArgs e)
     {
-        Debug.WriteLine("DragOver");
-        // Only allow Copy or Link as Drop Operations.
-        e.DragEffects = e.DragEffects & (DragDropEffects.Copy | DragDropEffects.Link);
-
-        // Only allow if the dragged data contains text or filenames.
-        if (!e.Data.Contains(DataFormats.Text) && !e.Data.Contains(DataFormats.FileNames))
-            e.DragEffects = DragDropEffects.None;
+        e.DragEffects = !((App)App.Current).MainWindowViewModel.IsBusy &&
+            (e.DataTransfer.Contains(DataFormat.File) || e.DataTransfer.Contains(DataFormat.Text))
+            ? DragDropEffects.Copy : DragDropEffects.None;
     }
+
     private void Drop(object sender, DragEventArgs e)
     {
         var vm = ((App)App.Current).MainWindowViewModel;
-        Debug.WriteLine("Drop");
-        if (e.Data.Contains(DataFormats.Text))
-           vm.HexFile = e.Data.GetText();
-        else if (e.Data.Contains(DataFormats.FileNames))
-           vm.HexFile =  e.Data.GetFileNames()?.FirstOrDefault();
+        if (vm.IsBusy) return;
+        var path = e.DataTransfer.TryGetFile()?.TryGetLocalPath() ?? e.DataTransfer.TryGetText();
+        if (Uri.TryCreate(path, UriKind.Absolute, out var uri) && uri.IsFile) path = uri.LocalPath;
+        if (!string.IsNullOrWhiteSpace(path)) vm.HexFile = path;
     }
 }

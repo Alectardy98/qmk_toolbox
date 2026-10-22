@@ -22,7 +22,7 @@ internal class LufaHidDevice : BootloaderDevice
 
     public override void Flash(string mcu, string file)
     {
-        RunProcessAsync("hid_bootloader_cli", $"-mmcu={mcu} \"{file}\" -v").Wait();
+        RunProcessAsync("hid_bootloader_cli", $"-mmcu={mcu} {Quote(file)} -v").Wait();
     }
 
     // hid_bootloader_cli 210130 lacks -b flag

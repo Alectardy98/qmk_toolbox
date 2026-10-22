@@ -1,34 +1,32 @@
 #!/bin/sh
 set -eu
-
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$ROOT"
+command -v appimagetool >/dev/null
+mkdir -p build
+rm -rf build/publish build/AppDir
+dotnet publish QMKToolbox/QMKToolbox.csproj -c Release -r linux-x64 --self-contained true -o build/publish
+mkdir -p build/AppDir/usr/bin build/AppDir/usr/share/applications build/AppDir/usr/share/icons/hicolor/256x256/apps
+cp -a build/publish/. build/AppDir/usr/bin/
+cp package/QMKToolbox.desktop build/AppDir/usr/share/applications/
+cp package/QMKToolbox.desktop build/AppDir/
+cp package/qmk-toolbox.png build/AppDir/
+cp package/qmk-toolbox.png build/AppDir/usr/share/icons/hicolor/256x256/apps/
+cp package/50-qmk.rules package/install-udev-rules.sh package/qmk_id package/qmk_udev.COPYING package/qmk_udev-v0.1.23-source.tar.gz package/THIRD-PARTY.md build/AppDir/
+cat > build/AppDir/AppRun <<'RUN'
+#!/bin/sh
+HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec "$HERE/usr/bin/QMKToolbox" "$@"
+RUN
+chmod +x build/AppDir/AppRun
+# Replace atomically: an already running AppImage keeps its mounted inode,
+# while future launches resolve the same pathname to the new build.
+ARCH=x86_64 appimagetool build/AppDir build/QMKToolbox-x86_64.AppImage.new
+mv -f build/QMKToolbox-x86_64.AppImage.new build/QMKToolbox-x86_64.AppImage
+sha256sum build/QMKToolbox-x86_64.AppImage > build/QMKToolbox-x86_64.AppImage.sha256
 
-if ! command -v dotnet >/dev/null 2>&1; then
-    echo "dotnet SDK is required to build QMK Toolbox."
-    exit 1
+# Refresh the stable local launcher after a successful build. Packaging-only
+# environments can opt out; no system files are changed.
+if [ "${QMK_TOOLBOX_SKIP_DESKTOP_INTEGRATION:-0}" != "1" ]; then
+    python3 package/install-desktop.py
 fi
-
-if ! command -v appimagetool >/dev/null 2>&1; then
-    echo "appimagetool is required to build the AppImage."
-    exit 1
-fi
-
-rm -rf dist AppDir
-dotnet publish QMKToolbox/QMKToolbox.csproj -c Release -r linux-x64 --self-contained true -o dist
-
-mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
-cp -a dist/. AppDir/usr/bin/
-cp package/QMKToolbox.desktop AppDir/usr/share/applications/QMKToolbox.desktop
-cp package/QMKToolbox.desktop AppDir/QMKToolbox.desktop
-
-python -c 'from PIL import Image; img=Image.open("QMKToolbox/Resources/qmk.ico"); img.seek(getattr(img,"n_frames",1)-1); img=img.convert("RGBA"); img.thumbnail((256,256)); img.save("AppDir/qmk-toolbox.png"); img.save("AppDir/usr/share/icons/hicolor/256x256/apps/qmk-toolbox.png")'
-
-printf "%s\n" "#!/bin/sh" 'HERE="$(dirname "$(readlink -f "$0")")"' 'exec "$HERE/usr/bin/QMKToolbox" "$@"' > AppDir/AppRun
-chmod +x AppDir/AppRun
-
-rm -f QMKToolbox-x86_64.AppImage
-ARCH=x86_64 appimagetool AppDir QMKToolbox-x86_64.AppImage
-
-echo "Built:"
-ls -lh QMKToolbox-x86_64.AppImage

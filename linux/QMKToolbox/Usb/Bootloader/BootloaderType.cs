@@ -1,4 +1,4 @@
-﻿// ReSharper disable StringLiteralTypo
+// ReSharper disable StringLiteralTypo
 namespace QMK_Toolbox.Usb.Bootloader;
 
 internal enum BootloaderType
@@ -21,5 +21,6 @@ internal enum BootloaderType
     UsbAsp,
     UsbTinyIsp,
     Wb32Dfu,
+    Stm32Uart,
     None
 }

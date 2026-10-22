@@ -1,71 +1,54 @@
-﻿// ReSharper disable StringLiteralTypo
+﻿using System;
+using System.Globalization;
 using System.IO;
-using System.Threading.Tasks;
+using System.Linq;
 
 namespace QMK_Toolbox.Usb.Bootloader;
 
 internal class LufaMsDevice : BootloaderDevice
 {
-    private string _mountPoint;
-
     public LufaMsDevice(KnownHidDevice d) : base(d)
     {
         Type = BootloaderType.LufaMs;
         Name = "LUFA MS";
-
-        MountPoint = FindMountPoint();
     }
 
-    private string MountPoint { get; }
-    
     public override void Flash(string mcu, string file)
     {
-        Task.Run(() =>
+        if (!string.Equals(Path.GetExtension(file), ".bin", StringComparison.OrdinalIgnoreCase))
+            throw new IOException("LUFA mass storage requires a .bin file.");
+        var mounts = File.ReadLines("/proc/self/mountinfo").Select(line => line.Split(' '))
+            .Where(fields => fields.Length > 5 && MatchesDevice(fields[2]))
+            .Select(fields => DecodeMountPath(fields[4])).Distinct().ToArray();
+        if (mounts.Length != 1) throw new IOException("Cannot identify a unique mounted LUFA bootloader volume.");
+        var destination = Path.Combine(mounts[0], "FLASH.BIN");
+        PrintMessage($"Writing {destination}", MessageType.Command);
+        using (var source = File.OpenRead(file))
+        using (var target = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            if (MountPoint == null)
-            {
-                PrintMessage("Mount point not found!", MessageType.Error);
-                return;
-            }
-
-            if (Path.GetExtension(file)?.ToLower() == ".bin")
-            {
-                var destFile = $"{MountPoint}/FLASH.BIN";
-
-                try
-                {
-                    PrintMessage($"Deleting {destFile}...", MessageType.Command);
-                    File.Delete(destFile);
-                    PrintMessage($"Copying {file} to {destFile}...", MessageType.Command);
-                    File.Copy(file, destFile);
-
-                    PrintMessage("Done, please eject drive now.", MessageType.Bootloader);
-                }
-                catch (IOException e)
-                {
-                    PrintMessage($"IO ERROR: {e.Message}", MessageType.Error);
-                }
-            }
-            else
-            {
-                PrintMessage("Only firmware files in .bin format can be flashed with this bootloader!",
-                    MessageType.Error);
-            }
-        }).Wait();
+            source.CopyTo(target);
+            target.Flush(true);
+        }
+        PrintMessage("Firmware copied. Eject the drive to finish.", MessageType.Bootloader);
     }
 
-    public override string ToString()
-    {
-        return $"{base.ToString()} [{MountPoint}]";
-    }
+    internal static string DecodeMountPath(string path) => path.Replace("\\040", " ")
+        .Replace("\\011", "\t").Replace("\\012", "\n").Replace("\\134", "\\");
 
-    private string FindMountPoint()
+    private bool MatchesDevice(string number)
     {
-        // TODO find out if this works, rework to match to usb device that was mounted.
-        // this mounts the first removable drive.
-        OutputReceived += (_, data, _) => { _mountPoint = data; };
-        RunProcessAsync("bash", "-c \"lsblk | grep media | head -n 1 | awk '{print $7}'\"").Wait();
-
-        return _mountPoint.Contains("media") ? _mountPoint : null;
+        var link = new DirectoryInfo("/sys/dev/block/" + number);
+        if (!link.Exists) return false;
+        var current = link.ResolveLinkTarget(true) as DirectoryInfo;
+        while (current != null)
+        {
+            var vendor = Path.Combine(current.FullName, "idVendor");
+            var product = Path.Combine(current.FullName, "idProduct");
+            if (File.Exists(vendor) && File.Exists(product))
+                return ushort.Parse(File.ReadAllText(vendor).Trim(), NumberStyles.HexNumber) == VendorId &&
+                    ushort.Parse(File.ReadAllText(product).Trim(), NumberStyles.HexNumber) == ProductId && current.Name == Identity;
+            current = current.Parent;
+        }
+        return false;
     }
 }

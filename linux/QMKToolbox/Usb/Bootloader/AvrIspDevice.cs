@@ -7,11 +7,10 @@ internal class AvrIspDevice : BootloaderDevice
     {
         Type = BootloaderType.AvrIsp;
         Name = "AVR ISP";
-        // TODO: Fix this
-        ComPort = "/dev/ttyACM0"; // hard coded for now
+
     }
 
-    private string ComPort { get; }
+    private string ComPort => CaterinaDevice.FindComPort(VendorId, ProductId, Identity);
 
     public override void Flash(string mcu, string file)
     {
@@ -20,6 +19,6 @@ internal class AvrIspDevice : BootloaderDevice
             PrintMessage("COM port not found!", MessageType.Error);
             return;
         }
-        RunProcessAsync("avrdude", $"-p {mcu} -c avrisp -U flash:w:\"{file}\":i -P {ComPort}").Wait();
+        RunProcessAsync("avrdude", $"-p {mcu} -c avrisp -U flash:w:{Quote(file)}:i -P {ComPort}").Wait();
     }
 }

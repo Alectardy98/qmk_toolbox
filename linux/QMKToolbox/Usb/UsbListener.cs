@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using JetBrains.Annotations;
-using LibUsbDotNet.LibUsb;
-using LibUsbDotNet.Main;
+using System.IO;
+using System.Globalization;
+
 using QMK_Toolbox.Usb.Bootloader;
 
 // ReSharper disable StringLiteralTypo
@@ -21,13 +21,14 @@ internal class UsbListener
 
     private readonly List<KnownHidDevice> _attachedDevices = new();
     private readonly List<KnownHidDevice> _knownDevices = new();
-    private readonly UsbContext _usbContext = new();
+
     private Task _backgroundTask;
 
     public BootloaderDeviceEventDelegate BootloaderDeviceConnected;
     public BootloaderDeviceEventDelegate BootloaderDeviceDisconnected;
 
     public FlashOutputReceivedDelegate OutputReceived;
+    public event Action<UsbDeviceNameRecord, bool> DeviceChanged;
 
     public UsbListener()
     {
@@ -46,94 +47,100 @@ internal class UsbListener
         OutputReceived?.Invoke(device, data, type);
     }
 
-    private void GetNewUsbDevices(List<UsbDeviceNameRecord> listNew)
+    private void GetNewUsbDevices(List<UsbDeviceNameRecord> devices)
     {
-        var allDevices = _usbContext.List();
-
-        foreach (var dev in allDevices)
+        foreach (var path in Directory.GetDirectories("/sys/bus/usb/devices"))
         {
-            var deviceRevisionBcd = dev.Info.Device;
-            if (listNew.Any(x => x.ProductId == dev.ProductId && x.VendorId == dev.VendorId))
-                continue;
+            try
             {
-                var manufacturer = "n/a";
-
-                listNew.Add(new UsbDeviceNameRecord()
+                var vendor = Path.Combine(path, "idVendor");
+                if (!File.Exists(vendor)) continue;
+                devices.Add(new UsbDeviceNameRecord
                 {
-                    VendorId = dev.VendorId, ProductId = dev.ProductId,
-                    DeviceRevisionBcd = deviceRevisionBcd, ManufacturerName = manufacturer
+                    Identity = Path.GetFileName(path),
+                    DeviceAddress = ReadOptional(path, "devnum"),
+                    ManufacturerName = ReadOptional(path, "manufacturer"),
+                    ProductName = ReadOptional(path, "product"),
+                    SerialNumber = ReadOptional(path, "serial"),
+                    HasDfuInterface = Directory.GetDirectories("/sys/bus/usb/devices", Path.GetFileName(path) + ":*")
+                        .Any(x => ReadOptional(x, "bInterfaceClass") == "fe" && ReadOptional(x, "bInterfaceSubClass") == "01"),
+                    VendorId = ushort.Parse(File.ReadAllText(vendor).Trim(), NumberStyles.HexNumber),
+                    ProductId = ushort.Parse(File.ReadAllText(Path.Combine(path, "idProduct")).Trim(), NumberStyles.HexNumber),
+                    DeviceRevisionBcd = ushort.Parse(File.ReadAllText(Path.Combine(path, "bcdDevice")).Trim(), NumberStyles.HexNumber)
                 });
             }
+            catch (IOException) { } // A device may disappear while reading its attributes.
+            catch (UnauthorizedAccessException) { }
+            catch (FormatException) { } // Ignore an incomplete descriptor snapshot.
+            catch (OverflowException) { }
         }
     }
-    
+
+    private static string ReadOptional(string directory, string attribute)
+    {
+        try { return File.ReadAllText(Path.Combine(directory, attribute)).Trim(); }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+    }
+
+    private readonly CancellationTokenSource _stop = new();
+
+    public void Stop() => _stop.Cancel();
+
     private void CheckKnownDevicesConnectionState()
     {
-        List<UsbDeviceNameRecord> listOld = new();
-        List<UsbDeviceNameRecord> listNew = new();
-        var helper = new UsbDeviceRecordHelper();
-        
-        GetNewUsbDevices(listNew);
-
-        while (true)
+        try
         {
-            listOld = new ();
-            listOld.AddRange(listNew);
-            listNew = new();
-    
-            // we are polling 2x per sec for a list of usb devices on this background
-            // thread.
-            Thread.Sleep(500);
-
-            GetNewUsbDevices(listNew);
-
-            var added = listNew.Except(listOld, new UsbDeviceRecordComparer()).ToList();
-            var removed = listOld.Except(listNew, new UsbDeviceRecordComparer()).ToList();
-            if (added.Count > 0)
+            while (!_stop.IsCancellationRequested)
             {
-                var item = added.FirstOrDefault();
-                Debug.Assert(item!=null);
-
-                var device =_knownDevices.FirstOrDefault(x=>x.VendorId == item.VendorId && 
-                                                            x.ProductId == item.ProductId);
-                if (device == null)
-                {
-                   Console.WriteLine(@"Could not find device with VendorId: {0}, ProductId: {1}", 
-                       item.VendorId, item.ProductId);
-                   continue;
-                }
-                
-                // we take the device bcd from the actual device, not from our table
-                // the BootloaderDevice subclasses will handle it.
-                device.RevisionBcd = item.DeviceRevisionBcd;
-                var bootloaderDevice = CreateDevice(device);
-                _attachedDevices.Add(device);
-                BootloaderDeviceConnected?.Invoke(bootloaderDevice);
-                bootloaderDevice.OutputReceived = FlashOutputReceived;
+                var current = new List<UsbDeviceNameRecord>();
+                GetNewUsbDevices(current);
+                ReconcileDevices(current);
+                _stop.Token.WaitHandle.WaitOne(500);
             }
-
-            if (removed.Count > 0)
-            {
-                var item = removed.FirstOrDefault();
-                Debug.Assert(item != null);
-                var device =_knownDevices.FirstOrDefault(x=>x.VendorId == item.VendorId && 
-                                                            x.ProductId == item.ProductId);
-                if (device == null)
-                    continue;
-                var bootloaderDevice = CreateDevice(device);
-                if (bootloaderDevice != null)
-                {
-                    BootloaderDeviceDisconnected?.Invoke(bootloaderDevice);
-                    bootloaderDevice.OutputReceived = null;
-                }
-            }
-
-            added.Clear();
-            removed.Clear();
         }
+        catch (Exception ex) { OutputReceived?.Invoke(null, $"USB monitor stopped: {ex.Message}", MessageType.Error); }
+
     }
-    
-    
+
+    private List<UsbDeviceNameRecord> _previous = new();
+    private readonly Dictionary<string, BootloaderDevice> _attached = new();
+
+    internal void ReconcileDevices(List<UsbDeviceNameRecord> current)
+    {
+        foreach (var item in _previous.Except(current, new UsbDeviceRecordComparer()))
+        {
+            DeviceChanged?.Invoke(item, false);
+            if (_attached.Remove(item.Identity, out var device)) BootloaderDeviceDisconnected?.Invoke(device);
+        }
+        foreach (var item in current.Except(_previous, new UsbDeviceRecordComparer()))
+        {
+            DeviceChanged?.Invoke(item, true);
+            var device = ResolveDevice(item);
+            if (device == null) continue;
+            device.OutputReceived = FlashOutputReceived;
+            _attached[item.Identity] = device;
+            BootloaderDeviceConnected?.Invoke(device);
+        }
+        _previous = current.ToList();
+    }
+
+    internal BootloaderDevice ResolveDevice(UsbDeviceNameRecord item)
+    {
+        var known = _knownDevices.Where(x => x.VendorId == item.VendorId && x.ProductId == item.ProductId)
+            .OrderByDescending(x => x.RevisionBcd == item.DeviceRevisionBcd).FirstOrDefault();
+        if (known == null) return null;
+        if ((known.BootloaderType is BootloaderType.Stm32Dfu or BootloaderType.Stm32Duino) && !item.HasDfuInterface)
+            return null;
+        return CreateDevice(new KnownHidDevice
+        {
+            Identity = item.Identity, VendorId = known.VendorId, ProductId = known.ProductId,
+            RevisionBcd = item.DeviceRevisionBcd, VendorName = item.ManufacturerName ?? known.VendorName,
+            ProductName = item.ProductName ?? known.ProductName, SerialNumber = item.SerialNumber,
+            BootloaderType = known.BootloaderType
+        });
+    }
+
     private static BootloaderDevice CreateDevice(KnownHidDevice device)
     {
         switch (device.BootloaderType)
@@ -178,6 +185,11 @@ internal class UsbListener
 
     private void PopulateKnownDevices()
     {
+        _knownDevices.Add(new KnownHidDevice
+        {
+            VendorId = 0x03eb, ProductId = 0x6124,
+            VendorName = "Atmel", ProductName = "SAM-BA", BootloaderType = BootloaderType.AtmelSamBa
+        });
         _knownDevices.Add(new KnownHidDevice
         {
             VendorId = 0x03eb, ProductId = 0x2045,
@@ -272,14 +284,14 @@ internal class UsbListener
 
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x0438, ProductId = 0x0000,
+            VendorId = 0x0483, ProductId = 0xdf11,
             VendorName = "STMicroelectronics", ProductName = "STM Device in DFU Mode",
             BootloaderType = BootloaderType.Stm32Dfu
         });
 
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x2045, ProductId = 0x0000,
+            VendorId = 0x1209, ProductId = 0x2302,
             VendorName = "Generic", ProductName = "Keyboardio Atreus 2 Bootloader",
             BootloaderType = BootloaderType.Caterina
         });
@@ -292,7 +304,7 @@ internal class UsbListener
         });
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x1209, ProductId = 0x483,
+            VendorId = 0x16c0, ProductId = 0x0483,
             VendorName = "Van Ooijen Technische Informatica", ProductName = "Teensyduino Serial",
             BootloaderType = BootloaderType.AvrIsp
         });
@@ -304,14 +316,14 @@ internal class UsbListener
         });
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x1209, ProductId = 0x5df,
+            VendorId = 0x16c0, ProductId = 0x05df,
             VendorName = "Van Ooijen Technische Informatica", ProductName = "SharedID for USB",
             BootloaderType = BootloaderType.BootloadHid
         });
 
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 1781, ProductId = 0x0,
+            VendorId = 0x1781, ProductId = 0x0c9f,
             VendorName = "Mechanique", ProductName = "USB Tiny",
             BootloaderType = BootloaderType.UsbTinyIsp
         });
@@ -345,13 +357,13 @@ internal class UsbListener
         _knownDevices.Add(new KnownHidDevice
         {
             VendorId = 0x1eaf, ProductId = 0x0003,
-            VendorName = "Leaf Labs", ProductName = "A-Star 32U4",
+            VendorName = "Leaf Labs", ProductName = "STM32duino USB bootloader",
             BootloaderType = BootloaderType.Stm32Duino
         });
 
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x1ffb, ProductId = 0x0003,
+            VendorId = 0x1ffb, ProductId = 0x0101,
             VendorName = "Pololu Corporation", ProductName = "STM32Duino",
             BootloaderType = BootloaderType.Caterina
         });
@@ -383,19 +395,19 @@ internal class UsbListener
 
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x2398, ProductId = 0x000c,
+            VendorId = 0x239a, ProductId = 0x000c,
             VendorName = "AdaFruit", ProductName = "Feather 32U4",
             BootloaderType = BootloaderType.Caterina
         });
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x2398, ProductId = 0x000d,
+            VendorId = 0x239a, ProductId = 0x000d,
             VendorName = "AdaFruit", ProductName = "ItsyBitsy 32U4 3V3/8MHz",
             BootloaderType = BootloaderType.Caterina
         });
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x2398, ProductId = 0x000e,
+            VendorId = 0x239a, ProductId = 0x000e,
             VendorName = "AdaFruit", ProductName = "ItsyBitsy 32U4 5V/16MHz",
             BootloaderType = BootloaderType.Caterina
         });
@@ -416,7 +428,7 @@ internal class UsbListener
 
         _knownDevices.Add(new KnownHidDevice
         {
-            VendorId = 0x3420, ProductId = 0x0003,
+            VendorId = 0x342d, ProductId = 0xdfa0,
             VendorName = "WestBerryTech", ProductName = "WB32 DFU Bootloader",
             BootloaderType = BootloaderType.Wb32Dfu
         });

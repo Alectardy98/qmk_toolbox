@@ -1,9 +1,10 @@
 [Desktop Entry]
 Name=QMK Toolbox
 Comment=Flash firmware to QMK keyboards
-Exec=QMKToolbox
+Exec=QMKToolbox %f
 Icon=qmk-toolbox
 Terminal=false
 Type=Application
 Categories=Development;
 StartupWMClass=QMKToolbox
+StartupNotify=true

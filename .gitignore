@@ -312,3 +312,10 @@ qmk_toolbox.exe
 qmk_toolbox_install.exe
 QMK.Toolbox.app.zip
 QMK.Toolbox.pkg
+
+# Linux generated validation and release artifacts
+/linux/build/
+
+/linux/package/__pycache__/
+
+/linux/tests/__pycache__/

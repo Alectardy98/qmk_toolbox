@@ -14,11 +14,11 @@ internal class UsbAspDevice : BootloaderDevice
 
     public override void Flash(string mcu, string file)
     {
-        RunProcessAsync("avrdude", $"-p {mcu} -c usbasp -U flash:w:\"{file}\":i").Wait();
+        RunProcessAsync("avrdude", $"-p {mcu} -c usbasp -U flash:w:{Quote(file)}:i").Wait();
     }
 
     public override void FlashEeprom(string mcu, string file)
     {
-        RunProcessAsync("avrdude", $"-p {mcu} -c usbasp -U eeprom:w:\"{file}\":i").Wait();
+        RunProcessAsync("avrdude", $"-p {mcu} -c usbasp -U eeprom:w:{Quote(file)}:i").Wait();
     }
 }

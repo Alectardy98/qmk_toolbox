@@ -15,7 +15,7 @@ internal class HalfKayDevice : BootloaderDevice
 
     public override void Flash(string mcu, string file)
     {
-        RunProcessAsync("teensy_loader_cli", $"-mmcu={mcu} \"{file}\" -v").Wait();
+        RunProcessAsync("teensy_loader_cli", $"-mmcu={mcu} {Quote(file)} -v").Wait();
     }
 
     public override void Reset(string mcu)

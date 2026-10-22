@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
@@ -27,18 +27,31 @@ namespace QMK_Toolbox.Helpers
             "wb32-dfu-updater_cli",
         };
 
+        // A private directory prevents stale or other users' /tmp tools being executed.
+        internal static readonly string ResourceDirectory = CreateResourceDirectory();
+
+        private static string CreateResourceDirectory()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "qmk-toolbox-" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(path);
+            LinuxPermissions.SetPrivateDirectory(path);
+            return path;
+        }
+
         internal static void ExtractResource(string file)
         {
-            var destPath = Path.Combine("/tmp", file);
+            var destPath = Path.Combine(ResourceDirectory, file);
+            using var stream = Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream($"QMK_Toolbox.Resources.{file}")
+                ?? throw new FileNotFoundException($"Missing bundled resource: {file}");
+            using (var output = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                stream.CopyTo(output);
+            LinuxPermissions.MakeExecutable(destPath);
+        }
 
-            if (!File.Exists(destPath))
-            {
-                using var stream = 
-                    Assembly.GetExecutingAssembly().GetManifestResourceStream($"QMK_Toolbox.Resources.{file}");
-                using var filestream = new FileStream(destPath, FileMode.Create);
-                stream?.CopyTo(filestream);
-                LinuxPermissions.MakeExecutable(destPath);
-            }
+        internal static void Cleanup()
+        {
+            if (Directory.Exists(ResourceDirectory)) Directory.Delete(ResourceDirectory, true);
         }
 
         internal static void ExtractResources(params string[] files) => ExtractResources(files as IEnumerable<string>);

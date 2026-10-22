@@ -10,11 +10,10 @@ internal class AtmelSamBaDevice : BootloaderDevice
         Type = BootloaderType.AtmelSamBa;
         Name = "Atmel SAM-BA";
         IsResettable = true;
-        // TODO: Fix this
-        ComPort = "/dev/ttyACM0"; // hard coded for now
+
     }
 
-    private string ComPort { get; }
+    private string ComPort => CaterinaDevice.FindComPort(VendorId, ProductId, Identity);
 
     public override void Flash(string mcu, string file)
     {
@@ -24,7 +23,7 @@ internal class AtmelSamBaDevice : BootloaderDevice
             return;
         }
 
-        RunProcessAsync("mdloader", $"-p {ComPort} -D \"{file}\" --restart").Wait();
+        RunProcessAsync("mdloader", $"-p {ComPort} -D {Quote(file)} --restart").Wait();
     }
 
     public override void Reset(string mcu)

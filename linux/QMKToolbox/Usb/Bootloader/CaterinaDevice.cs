@@ -20,11 +20,11 @@ internal class CaterinaDevice : BootloaderDevice
 
     public string ComPort { get; private set; }
 
-    private string FindComPort()
+    internal static string FindComPort(ushort vendorId, ushort productId, string identity = null)
     {
         foreach (var port in EnumerateCandidatePorts())
         {
-            if (PortMatchesUsbDevice(port, VendorId, ProductId))
+            if (PortMatchesUsbDevice(port, vendorId, productId, identity))
                 return port;
         }
 
@@ -36,7 +36,7 @@ internal class CaterinaDevice : BootloaderDevice
         // USB enumeration can occur slightly before cdc_acm creates /dev/ttyACM*.
         for (var attempt = 0; attempt < 20; attempt++)
         {
-            var port = FindComPort();
+            var port = FindComPort(VendorId, ProductId, Identity);
             if (port != null)
                 return port;
 
@@ -75,7 +75,7 @@ internal class CaterinaDevice : BootloaderDevice
         }
     }
 
-    private static bool PortMatchesUsbDevice(string port, ushort vendorId, ushort productId)
+    private static bool PortMatchesUsbDevice(string port, ushort vendorId, ushort productId, string identity)
     {
         try
         {
@@ -101,7 +101,8 @@ internal class CaterinaDevice : BootloaderDevice
                             CultureInfo.InvariantCulture, out var foundVendor) &&
                         ushort.TryParse(productText, NumberStyles.HexNumber,
                             CultureInfo.InvariantCulture, out var foundProduct) &&
-                        foundVendor == vendorId && foundProduct == productId)
+                        foundVendor == vendorId && foundProduct == productId &&
+                        (identity == null || current.Name == identity))
                     {
                         return true;
                     }
@@ -153,7 +154,7 @@ internal class CaterinaDevice : BootloaderDevice
 
         PrintMessage($"Using serial port {ComPort}", MessageType.Info);
         RunProcessAsync("avrdude",
-            $"-p {mcu} -c avr109 -U flash:w:\"{file}\":i -P {ComPort}").Wait();
+            $"-p {mcu} -c avr109 -U flash:w:{Quote(file)}:i -P {ComPort}").Wait();
     }
 
     public override void FlashEeprom(string mcu, string file)
@@ -174,7 +175,7 @@ internal class CaterinaDevice : BootloaderDevice
 
         PrintMessage($"Using serial port {ComPort}", MessageType.Info);
         RunProcessAsync("avrdude",
-            $"-p {mcu} -c avr109 -U eeprom:w:\"{file}\":i -P {ComPort}").Wait();
+            $"-p {mcu} -c avr109 -U eeprom:w:{Quote(file)}:i -P {ComPort}").Wait();
     }
 
     public override string ToString()
